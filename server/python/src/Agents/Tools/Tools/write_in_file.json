@@ -1,0 +1,8 @@
+{
+  "name": "write_in_file",
+  "description": "Overrides the content of a file (does not append).\nfile_path: the relative path of the file.\ncontent: the new content of the file.\nreturns: a message representing the success or failure of the file writing.",
+  "args_schema": {
+    "file_path": "str",
+    "content": "str"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Documentation agent",
+  "description": "This agent is a documentation agent.",
+  "instructions": "You are an AI documentation agent.",
+  "tool_names": []
+}

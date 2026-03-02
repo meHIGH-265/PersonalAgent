@@ -1,0 +1,7 @@
+{
+  "name": "read_file_content",
+  "description": "Opens a file and returns its content.\nfile_path: the relative path of the file.\nreturns: the content of the file as a string.",
+  "args_schema": {
+    "file_path": "str"
+  }
+}

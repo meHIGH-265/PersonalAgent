@@ -1,0 +1,9 @@
+{
+  "name": "replace_code_section_from_file",
+  "description": "Opens a python file and modifies a section from it that can be a class or function based on a given name. This should be used to avoid rewriting entire files.\nfile_path: the relative path of the file.\nsection_name: the name of the section to search for.\nreplacement: the new code that will replace that named section.\nThis returns a success or failure message.",
+  "args_schema": {
+    "file_path": "str",
+    "section_name": "str",
+    "replacement": "str"
+  }
+}

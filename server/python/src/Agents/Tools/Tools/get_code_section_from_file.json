@@ -1,0 +1,8 @@
+{
+  "name": "get_code_section_from_file",
+  "description": "Opens a python file and returns a section from it that can be a class or function based on a given name. This should be used for closer inspection of certain parts of a file without needing to reaf it all. Use whenever it is enough!\nfile_path: the relative path of the file.\nsection_name: the name of the section to search for.",
+  "args_schema": {
+    "file_path": "str",
+    "section_name": "str"
+  }
+}
