@@ -1,6 +1,6 @@
 {
   "name": "read_file_content",
-  "description": "Opens a file and returns its content.\nfile_path: the relative path of the file.\nreturns: the content of the file as a string.",
+  "description": "Reads the full content of a file.\nfile_path: the relative path of the file.\nreturns: the file content as a string, or a warning message if the file does not exist or is not a file.",
   "args_schema": {
     "file_path": "str"
   }

@@ -1,7 +1,0 @@
-{
-  "name": "get_file_content_structure",
-  "description": "Opens a python file and returns a summary of its content containing the classes and functions inside the file.\nfile_path: the relative path of the file.",
-  "args_schema": {
-    "file_path": "str"
-  }
-}

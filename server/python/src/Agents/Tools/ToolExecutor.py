@@ -19,30 +19,28 @@ class RemoteToolExecutor(ToolExecutor):
         return 7001
 
     def __init__(self, logger: Logger, host: str | None = None, port: int | None = None):
-        self.host = host
-        if self.host is None:
-            self.host = self.get_default_tool_host()
-        self.port = port
-        if self.port is None:
-            self.port = self.get_default_tool_port()
-
         self.logger = logger
+        self.host, self.port = None, None
+        self.set_tool_host(host)
+        self.set_tool_port(port)
 
     def get_tool_host(self) -> str:
         return self.host
 
-    def set_tool_host(self, tool_host: str | None = None) -> None:
-        self.host = tool_host
-        if self.host is None:
+    def set_tool_host(self, host: str | None = None) -> None:
+        if host is None:
             self.host = self.get_default_tool_host()
+        else:
+            self.host = host
 
     def get_tool_port(self) -> int:
         return self.port
 
-    def set_tool_port(self, tool_port: int | None = None) -> None:
-        self.port = tool_port
-        if self.port is None:
+    def set_tool_port(self, port: int | None = None) -> None:
+        if port is None:
             self.port = self.get_default_tool_port()
+        else:
+            self.port = port
 
     def call_tool(self, tool_call: ToolCall) -> ToolMessage:
         """

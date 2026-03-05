@@ -1,0 +1,8 @@
+{
+  "name": "search_in_files",
+  "description": "Searches recursively for a text pattern in all files under the base directory.\npattern: the string pattern to search for.\nfile_extension: optional file extension filter (e.g., .py).\nreturns: a JSON list of matches including file path, line number, and matching line.",
+  "args_schema": {
+    "pattern": "str",
+    "file_extension": "str"
+  }
+}

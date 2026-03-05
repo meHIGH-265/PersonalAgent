@@ -1,123 +1,279 @@
 import autopep8
-import os
+import json
+from pathlib import Path
 import re
+import sys
+import shutil
 import subprocess
 from typing import Callable
 
+from ToolImplementation.ProjectTree import ProjectTree
 from ToolImplementation.PythonAstParser import PythonAstParser
 
 
 class ToolLogic:
     @staticmethod
-    def get_default_base_directory_path() -> str:
-        return '..\\..\\..\\Output'
+    def get_default_base_directory_path() -> Path:
+        return Path('..\\..\\..\\Output')
+
+    @staticmethod
+    def compose_error_message(error_type: str, error_message: str) -> str:
+        return json.dumps({
+            'error_type': error_type,
+            'error_message': error_message
+        }, indent=2)
 
     def __init__(self):
-        self.base_directory_path: str = self.get_default_base_directory_path()
+        self.base_directory_path: Path = self.get_default_base_directory_path()
 
         self.tools: dict[str, Callable[[dict[str, str]], str]] = {
-            'list_files': self.list_files,
             'read_file_content': self.read_file_content,
+            'get_code_section_from_file': self.get_code_section_from_file,
+            'find_named_structure': self.find_named_structure,
+            'search_in_files': self.search_in_files,
             'create_file': self.create_file,
             'write_in_file': self.write_in_file,
+            'replace_code_section_from_file': self.replace_code_section_from_file,
+            'delete_path': self.delete_path,
+            'rename_path': self.rename_path,
             'run_python_script': self.run_python_script,
-            'get_file_content_structure': self.get_file_content_structure,
-            'get_code_section_from_file': self.get_code_section_from_file,
-            'replace_code_section_from_file': self.replace_code_section_from_file
+            'install_package': self.install_package
         }
 
     def set_base_directory_path(self, base_directory_path: str | None = None) -> None:
-        self.base_directory_path = base_directory_path
-        if self.base_directory_path is None:
+        if base_directory_path is None:
             self.base_directory_path = self.get_default_base_directory_path()
-
-    def read_file_content_template(self, file_path: str) -> tuple[str, bool]:
-        file_absolute_path = os.path.join(self.base_directory_path, file_path)
-
-        if not os.path.exists(file_absolute_path):
-            return f'File {file_path} doesn\'t exists!', False
-
-        try:
-            with open(file_absolute_path, 'r', encoding='utf-8') as file:
-                content = file.read()
-        except OSError:
-            return f'Couldn\'t read file {file_path}!', False
-
-        return content, True
-
-    # TOOLS
-
-    def list_files(self, data: dict[str, str]) -> str:
-        folder_path: str = data['folder_path']
-
-        if folder_path == '.':
-            folder_absolute_path = self.base_directory_path
         else:
-            folder_absolute_path = os.path.join(self.base_directory_path, folder_path)
+            self.base_directory_path = Path(base_directory_path)
 
-        try:
-            files = os.listdir(folder_absolute_path)
-        except Exception as _:
-            return f'Couldn\'t open folder {folder_path}!'
+    def resolve_path(self, path: str | Path) -> Path:
+        absolute_path = (self.base_directory_path / path).resolve()
 
-        return f'{files}'
+        if not absolute_path.is_relative_to(self.base_directory_path):
+            raise ValueError(f'Path "{path}" escapes base directory.')
+
+        return absolute_path
+
+
+    ### TOOLS
+
+    # READ
 
     def read_file_content(self, data: dict[str, str]) -> str:
         file_path: str = data['file_path']
 
-        content, _ = self.read_file_content_template(file_path)
-        return content
+        file_absolute_path = self.resolve_path(file_path)
+
+        if not file_absolute_path.exists():
+            error_type = 'warning'
+            error_message = f'The file "{file_path}" does not exist.'
+            return self.compose_error_message(error_type, error_message)
+
+        if not file_absolute_path.is_file():
+            error_type = 'warning'
+            error_message = f'"{file_path}" is not a file.'
+            return self.compose_error_message(error_type, error_message)
+
+        file_content = file_absolute_path.read_text(encoding='utf-8')
+        return file_content
+
+    def get_code_section_from_file(self, data: dict[str, str]) -> str:
+        file_path: str = data['file_path']
+        section_name: str = data['section_name']
+
+        file_absolute_path = self.resolve_path(file_path)
+        name_stack = [name for name in section_name.split('.') if name]
+
+        if not file_absolute_path.exists():
+            error_type = 'warning'
+            error_message = f'The file "{file_path}" does not exist.'
+            return self.compose_error_message(error_type, error_message)
+
+        if not file_absolute_path.is_file():
+            error_type = 'warning'
+            error_message = f'"{file_path}" is not a file.'
+            return self.compose_error_message(error_type, error_message)
+
+        if not file_path.endswith('.py'):
+            error_type = 'warning'
+            error_message = f'"{file_path}" is not a python file.'
+            return self.compose_error_message(error_type, error_message)
+
+        file_content = file_absolute_path.read_text(encoding='utf-8')
+        return PythonAstParser(file_content).get_source_code_for_section_by_name(name_stack)
+
+    def find_named_structure(self, data: dict[str, str]) -> str:
+        structure_name: str = data['structure_name']
+
+        project_tree = ProjectTree(self.base_directory_path)
+        name_stack = structure_name.split('.')
+
+        structure = project_tree.find_node(name_stack)
+
+        return json.dumps(structure, indent=2)
+
+    def search_in_files(self, data: dict[str, str]) -> str:
+        pattern: str = data['pattern']
+        file_extension: str | None = data.get('file_extension')
+
+        results = []
+
+        for path in self.base_directory_path.rglob('*'):
+            if not path.is_file():
+                continue
+
+            if file_extension and not path.name.endswith(file_extension):
+                continue
+
+            try:
+                content = path.read_text(encoding='utf-8')
+            except Exception:
+                continue  # skip unreadable files
+
+            for i, line in enumerate(content.splitlines(), start=1):
+                if pattern in line:
+                    results.append({
+                        "file": str(path.relative_to(self.base_directory_path)),
+                        "line_number": i,
+                        "line": line.strip()
+                    })
+
+        return json.dumps(results, indent=2)
+
+    # WRITE  ( CREATE / WRITE / EDIT / DELETE / MOVE )
 
     def create_file(self, data: dict[str, str]) -> str:
         file_path: str = data['file_path']
 
-        file_absolute_path = os.path.join(self.base_directory_path, file_path)
+        file_absolute_path = self.resolve_path(file_path)
 
-        if os.path.exists(file_absolute_path):
-            return f'File {file_path} already exists (it\'s content was not modified by this tool call)!'
+        if file_absolute_path.exists():
+            error_type = 'warning'
+            error_message = f'The file "{file_path}" already exists. It\'s content was not modified by this tool call.'
+            return self.compose_error_message(error_type, error_message)
 
-        dir_path = os.path.dirname(file_absolute_path)
-        os.makedirs(dir_path, exist_ok=True)
+        file_absolute_path.parent.mkdir(parents=True, exist_ok=True)
+        file_absolute_path.touch(exist_ok=True)
 
-        try:
-            with open(file_absolute_path, 'w', encoding='utf-8') as file:
-                file.write('def main():\n\tprint(f\'{__file__} is running...\')\n\n\nif __name__ == \'__main__\':\n\tmain()\n')
-
-            return f'File {file_path} was successfully created!'
-        except Exception as _:
-            return f'Couldn\'t create file {file_path}!'
+        return f'The file "{file_path}" was successfully created and is now empty.'
 
     def write_in_file(self, data: dict[str, str]) -> str:
         file_path: str = data['file_path']
         content: str = data['content']
 
-        file_absolute_path = os.path.join(self.base_directory_path, file_path)
-
-        if not os.path.exists(file_absolute_path):
-            return f'File {file_path} does not exists!'
-
+        file_absolute_path = self.resolve_path(file_path)
         if file_path.split('.')[-1] == 'py':
             content = autopep8.fix_code(content)
 
-        try:
-            with open(file_absolute_path, 'w', encoding='utf-8') as file:
-                file.write(content)
-            return f'Content successfully written in the file {file_path}!'
-        except OSError as _:
-            return f'Failed to open file {file_path}!'
-        except Exception as _:
-            return f'Failed to write content in the file {file_path}!'
+        if not file_absolute_path.exists():
+            error_type = 'warning'
+            error_message = f'The file "{file_path}" does not exists. It was not created by this tool call.'
+            return self.compose_error_message(error_type, error_message)
+
+        file_absolute_path.write_text(content, encoding='utf-8')
+
+        return f'The content was successfully written in the file "{file_path}".'
+
+    def replace_code_section_from_file(self, data: dict[str, str]) -> str:
+        file_path: str = data['file_path']
+        section_name: str = data['section_name']
+        replacement: str = data['replacement']
+
+        file_absolute_path = self.resolve_path(file_path)
+        name_stack = [name for name in section_name.split('.') if name]
+
+        if not file_absolute_path.exists():
+            error_type = 'warning'
+            error_message = f'The file "{file_path}" does not exist.'
+            return self.compose_error_message(error_type, error_message)
+
+        if not file_absolute_path.is_file():
+            error_type = 'warning'
+            error_message = f'"{file_path}" is not a file.'
+            return self.compose_error_message(error_type, error_message)
+
+        if not file_path.endswith('.py'):
+            error_type = 'warning'
+            error_message = f'"{file_path}" is not a python file.'
+            return self.compose_error_message(error_type, error_message)
+
+        file_content = file_absolute_path.read_text(encoding='utf-8')
+
+        new_content = PythonAstParser(file_content).replace_section_by_name(name_stack, replacement)
+        if not new_content or new_content == file_content:
+            return f'The section with name "{section_name}" was not found. The content of the file was not modified.'
+
+        file_absolute_path.write_text(new_content)
+
+        return f'The content of the file "{file_path}" was successfully modified.'
+
+    def delete_path(self, data: dict[str, str]) -> str:
+        target_path: str = data['path']
+        absolute_path = self.resolve_path(target_path)
+
+        if not absolute_path.exists():
+            return self.compose_error_message(
+                'warning',
+                f'Path "{target_path}" does not exist.'
+            )
+
+        if absolute_path.is_file():
+            absolute_path.unlink()
+        elif absolute_path.is_dir():
+            shutil.rmtree(absolute_path)
+        else:
+            return self.compose_error_message(
+                'warning',
+                f'Path "{target_path}" is neither a file nor a directory.'
+            )
+
+        return f'Path "{target_path}" was successfully deleted.'
+
+    def rename_path(self, data: dict[str, str]) -> str:
+        source_path: str = data['source_path']
+        destination_path: str = data['destination_path']
+
+        source_absolute = self.resolve_path(source_path)
+        destination_absolute = self.resolve_path(destination_path)
+
+        if not source_absolute.exists():
+            return self.compose_error_message(
+                'warning',
+                f'Source path "{source_path}" does not exist.'
+            )
+
+        if destination_absolute.exists():
+            return self.compose_error_message(
+                'warning',
+                f'Destination path "{destination_path}" already exists.'
+            )
+
+        destination_absolute.parent.mkdir(parents=True, exist_ok=True)
+        source_absolute.rename(destination_absolute)
+
+        return f'"{source_path}" was successfully moved/renamed to "{destination_path}".'
+
+    # EXECUTE / INSTALL LIBRARY
 
     def run_python_script(self, data: dict[str, str]) -> str:
         file_path: str = data['file_path']
 
-        file_absolute_path = os.path.join(self.base_directory_path, file_path)
+        file_absolute_path = self.resolve_path(file_path)
 
-        if not os.path.exists(file_absolute_path):
-            return f'File {file_path} doesn\'t exists!'
+        if not file_absolute_path.exists():
+            error_type = 'warning'
+            error_message = f'The file "{file_path}" does not exist.'
+            return self.compose_error_message(error_type, error_message)
 
-        if file_path.split('.')[-1] != 'py':
-            return f'File {file_path} is not a python file!'
+        if not file_absolute_path.is_file():
+            error_type = 'warning'
+            error_message = f'"{file_path}" is not a file.'
+            return self.compose_error_message(error_type, error_message)
+
+        if not file_path.endswith('.py'):
+            error_type = 'warning'
+            error_message = f'"{file_path}" is not a python file.'
+            return self.compose_error_message(error_type, error_message)
 
         def file_to_module(file: str) -> str:
             module = file
@@ -128,7 +284,7 @@ class ToolLogic:
             module = module.replace('/', '.')
 
             # get rid of '.py'
-            if module[-3:] == '.py':
+            if module.endswith(',py'):
                 module = module[:-3]
 
             return module
@@ -139,6 +295,7 @@ class ToolLogic:
         current_working_directory = self.base_directory_path
 
         # Attempt to run recursively by peeling off module parts if ModuleNotFoundError occurs
+        timeout_in_seconds = 5
         while module_path:
             try:
                 result = subprocess.run(
@@ -146,7 +303,9 @@ class ToolLogic:
                     cwd=current_working_directory,
                     capture_output=True,
                     text=True,
-                    check=True
+                    check=True,
+                    encoding='utf-8',
+                    timeout=timeout_in_seconds
                 )
                 return result.stdout
 
@@ -160,24 +319,84 @@ class ToolLogic:
                         return f'Error raised inside the script: "{e.stderr}"'
 
                     # Move first part into cwd
-                    current_working_directory = os.path.join(current_working_directory, parts[0])
+                    current_working_directory = current_working_directory / parts[0]
                     module_path = parts[1]
 
                 else:
                     # Other subprocess errors, stop
                     return f'Error raised inside the script: "{e.stderr}"'
 
-            except Exception:
-                return f'Couldn\'t run script {file_path}!'
+            except subprocess.TimeoutExpired:
+                return f'Script exceeded the timeout of {timeout_in_seconds} seconds.'
 
         return f'Couldn\'t resolve module for script {file_path}!'
+
+    def install_package(self, data: dict[str, str]) -> str:
+        package_name: str = data['package_name']
+        timeout_in_seconds = 60
+
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", package_name],
+                capture_output=True,
+                text=True,
+                check=True,
+                encoding='utf-8',
+                timeout=timeout_in_seconds
+            )
+
+            return result.stdout
+
+        except subprocess.CalledProcessError as e:
+            return self.compose_error_message(
+                "error",
+                f"Package installation failed:\n{e.stderr}"
+            )
+
+        except subprocess.TimeoutExpired:
+            return self.compose_error_message(
+                "error",
+                f"Installation exceeded timeout of {timeout_in_seconds} seconds."
+            )
+
+        except Exception as e:
+            return self.compose_error_message("error", str(e))
+
+    ### OLD TOOLS
+
+    def list_files(self, data: dict[str, str]) -> str:
+        folder_path: str = data['folder_path']
+
+        folder_absolute_path = self.resolve_path(folder_path)
+
+        if not folder_absolute_path.exists():
+            error_type = 'warning'
+            error_message = f'The folder "{folder_path}" does not exist.'
+            return self.compose_error_message(error_type, error_message)
+
+        if not folder_absolute_path.is_dir():
+            error_type = 'warning'
+            error_message = f'"{folder_path}" is not a directory.'
+            return self.compose_error_message(error_type, error_message)
+
+        return list(folder_absolute_path.iterdir()).__str__()
 
     def get_file_content_structure(self, data: dict[str, str]) -> str:
         file_path: str = data['file_path']
 
-        content, OK = self.read_file_content_template(file_path)
-        if not OK:
-            return content
+        file_absolute_path = self.resolve_path(file_path)
+
+        if not file_absolute_path.exists():
+            error_type = 'warning'
+            error_message = f'The file "{file_path}" does not exist.'
+            return self.compose_error_message(error_type, error_message)
+
+        if not file_absolute_path.is_file():
+            error_type = 'warning'
+            error_message = f'"{file_path}" is not a file.'
+            return self.compose_error_message(error_type, error_message)
+
+        file_content = file_absolute_path.read_text(encoding='utf-8')
 
         def leading_whitespace(s: str) -> str:
             i = 0
@@ -186,7 +405,7 @@ class ToolLogic:
             return s[:i]
 
         summary = ''
-        non_empty_lines = [line for line in content.split('\n') if line]
+        non_empty_lines = [line for line in file_content.split('\n') if line]
         for line in non_empty_lines:
             line_words = [word for word in re.split(r'\W+', line) if word]
             if not line_words:
@@ -197,43 +416,7 @@ class ToolLogic:
                 summary += f'{leading_whitespace(line)}def {line_words[1]}():\n'
         return summary
 
-    def get_code_section_from_file(self, data: dict[str, str]) -> str:
-        file_path: str = data['file_path']
-        section_name: str = data['section_name']
-
-        content, OK = self.read_file_content_template(file_path)
-        if not OK:
-            return content
-
-        python_ast_parser = PythonAstParser()
-        return python_ast_parser.get_source_code_for_section_by_name(content, section_name)
-
-    def replace_code_section_from_file(self, data: dict[str, str]) -> str:
-        file_path: str = data['file_path']
-        section_name: str = data['section_name']
-        replacement: str = data['replacement']
-
-        content, OK = self.read_file_content_template(file_path)
-        if not OK:
-            return content
-
-        python_ast_parser = PythonAstParser()
-        new_content = python_ast_parser.replace_section_by_name(content, section_name, replacement)
-        if new_content == content:
-            return f'The section with name "{section_name}" wasn\'t found. The content of the file was not modified.'
-
-        file_absolute_path = os.path.join(self.base_directory_path, file_path)
-
-        try:
-            with open(file_absolute_path, 'w', encoding='utf-8') as file:
-                file.write(new_content)
-            return f'File modified successfully!'
-        except OSError as _:
-            return f'Failed to open file {file_path}!'
-        except Exception as _:
-            return f'Failed to open file {file_path}!'
-
-    # TOOL CALLING
+    ### TOOL CALLING
 
     @staticmethod
     def non_existing_tool(*args, **kwargs) -> str:

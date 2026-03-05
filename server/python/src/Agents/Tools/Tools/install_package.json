@@ -1,0 +1,7 @@
+{
+  "name": "install_package",
+  "description": "Installs a Python package using pip in the current Python environment.\npackage_name: the name of the package to install.\nreturns: the pip output on success or an error message on failure.",
+  "args_schema": {
+    "package_name": "str"
+  }
+}

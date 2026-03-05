@@ -1,6 +1,6 @@
 {
   "name": "get_code_section_from_file",
-  "description": "Opens a python file and returns a section from it that can be a class or function based on a given name. This should be used for closer inspection of certain parts of a file without needing to reaf it all. Use whenever it is enough!\nfile_path: the relative path of the file.\nsection_name: the name of the section to search for.",
+  "description": "Extracts a specific class, function, or nested structure from a Python file using AST parsing.\nfile_path: the relative path of the Python file.\nsection_name: dot-separated path to the structure (e.g., ClassName.method_name).\nreturns: the source code of the requested section, or a warning message.",
   "args_schema": {
     "file_path": "str",
     "section_name": "str"

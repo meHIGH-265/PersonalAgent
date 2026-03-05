@@ -1,0 +1,7 @@
+{
+  "name": "find_named_structure",
+  "description": "Searches the project tree for a named structure.\nstructure_name: dot-separated structure path (e.g., module.Class.method).\nreturns: a JSON representation of the found structure.",
+  "args_schema": {
+    "structure_name": "str"
+  }
+}

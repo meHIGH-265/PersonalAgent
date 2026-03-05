@@ -1,7 +1,0 @@
-{
-  "name": "list_files",
-  "description": "Returns the list of files and directories at the specified path.\nfolder_path: the relative path of the folder to search in.\nIf folder_path is one of '', '.', './', this function will return by default the list of files in the Working Directory.\nIf the result is an empty list it means the folder is empty, not that the tool failed.\nreturns: a string containing the list of files and directories or an empty list representation.",
-  "args_schema": {
-    "folder_path": "str"
-  }
-}

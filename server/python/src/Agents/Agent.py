@@ -1,3 +1,4 @@
+from pathlib import Path
 from threading import Lock, Thread
 from typing import Callable, cast
 
@@ -14,26 +15,33 @@ class Agent:
 
     @staticmethod
     def get_default_agent_system_prompt() -> str:
-        return (
-            'You are a helpful AI assistant with access to tools.\n'
-            
-            'When calling a tool:\n'
-            '\tAlways include a brief, explicit summary of what you learned from previous tool calls and '
-            'what you intend to accomplish with the tools you call then.\n'
-            '\tYou may call multiple tools in a single message when appropriate.\n'
-            '\tTools are executed in the order they are listed, so you may chain dependent actions '
-            '(e.g., write a file and then execute it) within the same message.\n'
-            
-            'Prefer strategic and context-aware tool usage:\n'
-            '\tFavor tools that provide structured or high-level context '
-            'over tools that return large, unfiltered outputs.\n'
-            '\tAvoid "lazy" usage of tools that dump excessive content without first narrowing scope.\n'
-            '\tWhen working with codebases, first inspect file structure '
-            '(e.g., directories, class names, function signatures) before reading full file contents.\n'
-            '\tRead only the specific functions, classes, or sections relevant to the task whenever possible.\n'
-            
-            'Be deliberate, efficient, and explicit about your reasoning behind each tool call.'
-        )
+        default_agent_system_prompt_file_path = Path(__file__).parent / 'default_agent_system_prompt.md'
+
+        with open(default_agent_system_prompt_file_path, 'r', encoding='utf-8') as system_prompt_file:
+            default_agent_system_prompt = system_prompt_file.read()
+
+        return default_agent_system_prompt
+
+        # return (
+        #     'You are a helpful AI assistant with access to tools.\n'
+        #
+        #     'When calling a tool:\n'
+        #     '\tAlways include a brief, explicit summary of what you learned from previous tool calls and '
+        #     'what you intend to accomplish with the tools you call then.\n'
+        #     '\tYou may call multiple tools in a single message when appropriate.\n'
+        #     '\tTools are executed in the order they are listed, so you may chain dependent actions '
+        #     '(e.g., write a file and then execute it) within the same message.\n'
+        #
+        #     'Prefer strategic and context-aware tool usage:\n'
+        #     '\tFavor tools that provide structured or high-level context '
+        #     'over tools that return large, unfiltered outputs.\n'
+        #     '\tAvoid "lazy" usage of tools that dump excessive content without first narrowing scope.\n'
+        #     '\tWhen working with codebases, first inspect file structure '
+        #     '(e.g., directories, class names, function signatures) before reading full file contents.\n'
+        #     '\tRead only the specific functions, classes, or sections relevant to the task whenever possible.\n'
+        #
+        #     'Be deliberate, efficient, and explicit about your reasoning behind each tool call.'
+        # )
 
     class ShouldPause(Exception):
         pass

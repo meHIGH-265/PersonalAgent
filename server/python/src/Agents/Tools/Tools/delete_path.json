@@ -1,0 +1,7 @@
+{
+  "name": "delete_path",
+  "description": "Deletes a file or directory recursively.\npath: the relative path of the file or directory.\nreturns: a success message or an error/warning message.",
+  "args_schema": {
+    "path": "str"
+  }
+}

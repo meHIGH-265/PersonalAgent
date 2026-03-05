@@ -1,6 +1,6 @@
 {
   "name": "write_in_file",
-  "description": "Overrides the content of a file (does not append).\nfile_path: the relative path of the file.\ncontent: the new content of the file.\nreturns: a message representing the success or failure of the file writing.",
+  "description": "Writes content into an existing file.\nfile_path: the relative path of the file.\ncontent: the content to write into the file.\nIf the file is a Python file, formatting is automatically applied using autopep8.\nreturns: a message indicating success or failure.",
   "args_schema": {
     "file_path": "str",
     "content": "str"
