@@ -1,11 +1,11 @@
 from pathlib import Path
 from threading import Lock, Thread
-from typing import Callable, cast
+from typing import Callable
 
 from src.Agents.Brain.ToolLLM import ToolLLM
-from src.Agents.Messages.Messages import Message, SystemMessage, UserMessage, ToolCall, ToolMessage, AIMessage
+from src.Agents.Messages.Messages import SystemMessage, UserMessage, AIMessage
 from src.Agents.Tools.ToolExecutor import ToolExecutor
-from src.Logging.CustomLogging import Logger
+from src.Logging.Logger import Logger
 
 
 class Agent:
@@ -15,33 +15,8 @@ class Agent:
 
     @staticmethod
     def get_default_agent_system_prompt() -> str:
-        default_agent_system_prompt_file_path = Path(__file__).parent / 'default_agent_system_prompt.md'
-
-        with open(default_agent_system_prompt_file_path, 'r', encoding='utf-8') as system_prompt_file:
-            default_agent_system_prompt = system_prompt_file.read()
-
-        return default_agent_system_prompt
-
-        # return (
-        #     'You are a helpful AI assistant with access to tools.\n'
-        #
-        #     'When calling a tool:\n'
-        #     '\tAlways include a brief, explicit summary of what you learned from previous tool calls and '
-        #     'what you intend to accomplish with the tools you call then.\n'
-        #     '\tYou may call multiple tools in a single message when appropriate.\n'
-        #     '\tTools are executed in the order they are listed, so you may chain dependent actions '
-        #     '(e.g., write a file and then execute it) within the same message.\n'
-        #
-        #     'Prefer strategic and context-aware tool usage:\n'
-        #     '\tFavor tools that provide structured or high-level context '
-        #     'over tools that return large, unfiltered outputs.\n'
-        #     '\tAvoid "lazy" usage of tools that dump excessive content without first narrowing scope.\n'
-        #     '\tWhen working with codebases, first inspect file structure '
-        #     '(e.g., directories, class names, function signatures) before reading full file contents.\n'
-        #     '\tRead only the specific functions, classes, or sections relevant to the task whenever possible.\n'
-        #
-        #     'Be deliberate, efficient, and explicit about your reasoning behind each tool call.'
-        # )
+        default_agent_system_prompt_file_path: Path = Path(__file__).parent / 'default_agent_system_prompt.md'
+        return default_agent_system_prompt_file_path.read_text(encoding='utf-8')
 
     class ShouldPause(Exception):
         pass
@@ -56,55 +31,45 @@ class Agent:
             instructions: str | None = None
     ):
         # LLM
-        self.llm = llm
+        self.llm: ToolLLM = llm
 
         # Logger
-        self.logger = logger
+        self.logger: Logger = logger
 
         # Tool Manager
-        self.tool_executor = tool_executor
+        self.tool_executor: ToolExecutor = tool_executor
 
         # Name
-        if not name:
-            self.name = f'{self.get_default_agent_name()}'
-        else:
-            self.name = f'{name}'
+        self.name: str = name or Agent.get_default_agent_name()
 
         # Description
-        if not description:
-            self.description = ''
-        else:
-            self.description = f'{description}'
+        self.description: str = description or ''
 
         # System prompt
-        if not instructions:
-            self.instructions = SystemMessage(self.get_default_agent_system_prompt())
-        else:
-            self.instructions = SystemMessage(f'{instructions}')
+        self.instructions = SystemMessage(instructions or Agent.get_default_agent_system_prompt())
 
         # Message history
-        self.message_history: list[Message] = [self.instructions]
-        self.message_history_lock = Lock()
+        self.message_history: list = [self.instructions]
+        self.message_history_lock: Lock = Lock()
 
         # Task queue -> only use append and pop(0) !!!
         self.current_task: str | None = None
         self.tasks: list[tuple[str, Callable[[str], None], Callable[[str], None]]] = []
-        self.tasks_lock = Lock()
+        self.tasks_lock: Lock = Lock()
 
         # Function for submitting answers. It is permanently stored so that it can be used in resume situations
         self.submit_final_answer: Callable[[str], None] = lambda _ : None
         self.submit_partial_answer: Callable[[str], None] = lambda _ : None
 
         # Working state
-        self.working = False
-        self.working_state_lock = Lock()
-        self.should_pause = False
+        self.working: bool = False
+        self.working_state_lock: Lock = Lock()
+        self.should_pause: bool = False
 
-    def is_working(self) -> bool:
-        with self.working_state_lock:
-            return self.working
+    def __is_working(self) -> bool:
+        return self.working
 
-    def set_working_state(self, working: bool) -> None:
+    def __set_working_state(self, working: bool) -> None:
         """
         This always clears the should_pause flag when called,
         no matter the argument given
@@ -113,7 +78,7 @@ class Agent:
             self.working = working
             self.should_pause = False
 
-    def add_task(
+    def __add_task(
             self, task: str,
             submit_final_answer: Callable[[str], None] = lambda _ : None,
             submit_partial_answer: Callable[[str], None] = lambda _ : None
@@ -123,41 +88,29 @@ class Agent:
         with self.tasks_lock:
             self.tasks.append((task, submit_final_answer, submit_partial_answer))
 
-    def get_next_task(self) -> tuple[str | None, Callable[[str], None], Callable[[str], None]]:
+    def __get_next_task(self) -> tuple[str | None, Callable[[str], None], Callable[[str], None]]:
         with self.tasks_lock:
             if not self.tasks:
                 return None, lambda _ : None, lambda _ : None
             return self.tasks.pop(0)
 
-    def start_work(self) -> None:
-        def work() -> None:
-            if self.is_working():
-                return
-            self.set_working_state(True)
+    def __handle_ai_message(self, ai_message: AIMessage) -> None:
+        log_message: str = (
+            f'task:\n{self.current_task}'
+            f'\n\n'
+            f'response:\n{ai_message.get_content()}'
+            f'\n\n'
+            f'tool calls: {[tool_call.get_tool_name() for tool_call in ai_message.get_tool_calls()]}'
+        )
+        self.logger.log(log_message, who=self.name, use_separator=True, use_timestamp=True)
 
-            try:
-                self.resume_last_task_if_not_complete()
+        if ai_message.is_partial():
+            self.submit_partial_answer(ai_message.content)
+        else:
+            self.submit_final_answer(ai_message.content)
+            self.current_task = None
 
-                next_task, self.submit_final_answer, self.submit_partial_answer = self.get_next_task()
-                while next_task:
-                    self.submit_final_answer(self.solve_task(next_task))
-                    next_task, self.submit_final_answer, self.submit_partial_answer = self.get_next_task()
-            except self.ShouldPause as _:
-                pass
-
-            self.set_working_state(False)
-
-        Thread(target=work, daemon=True).start()
-
-    def handle_partial_answer(self, partial_answer: AIMessage) -> None:
-        if not partial_answer.get_tool_calls():
-            return
-
-        message_content = partial_answer.get_content()
-        if message_content:
-            self.submit_partial_answer(message_content)
-
-    def complete_chat(self) -> AIMessage:
+    def __complete_chat(self) -> AIMessage:
         # Check if the execution should pause
         with self.working_state_lock:
             if self.should_pause:
@@ -168,80 +121,56 @@ class Agent:
         # It doesn't run any tools, just generates an answer that might contain tool calls or just plain content
         # There is no loop in this function
 
-        ai_message = self.llm.complete_chat(self.message_history)
+        ai_message: AIMessage = self.llm.complete_chat(self.message_history)
         self.message_history.append(ai_message)
 
-        self.handle_partial_answer(ai_message)
+        self.__handle_ai_message(ai_message)
 
         return ai_message
 
-    def complete_chat_until_no_tools_are_called(self) -> AIMessage:
-        # Invoke LLM to get first tool calls
-        # Add AI's initial response to messages
-        ai_message = self.complete_chat()
+    def __complete_chat_until_no_tools_are_called(self) -> None:
+        ai_message: AIMessage = self.__complete_chat()
 
-        # Process tool calls and append their outputs
-        while True:
-            # Get tool calls
-            tool_calls: list[ToolCall] = ai_message.get_tool_calls()
+        while ai_message.is_partial():
+            for tool_call in ai_message.get_tool_calls():
+                self.message_history.append(self.tool_executor.call_tool(tool_call))
 
-            if not tool_calls:
-                # If no tool was called this iteration of the while, then we break
-                break
+            ai_message = self.__complete_chat()
 
-            # Iterate through tool calls
-            for tool_call in tool_calls:
-                # Run every tool called and append their result to the message history
-                tool_msg: ToolMessage = self.tool_executor.call_tool(tool_call)
-                self.message_history.append(tool_msg)
+    def __resume_last_task_if_not_complete(self) -> None:
+        if not self.current_task:
+            return
 
-            # Invoke LLM again for potentially the final answer or maybe some more tool calls
-            ai_message = self.complete_chat()
-
-        return ai_message
-
-    def resume_last_task_if_not_complete(self) -> None:
         with self.message_history_lock:
-            # Check the last message and it's type
-            last_message = self.message_history[-1]
-            last_message_type = type(last_message)
+            self.__complete_chat_until_no_tools_are_called()
 
-            if last_message_type is SystemMessage:
-                # last message is the system message (no AI intervention needed)
-                return
-            if last_message_type is AIMessage and not cast(AIMessage, last_message).get_tool_calls():
-                # last message is an AI message without tool calls (also no AI intervention needed)
-                return
-
-            # AI intervention needed
-            ai_msg = self.complete_chat_until_no_tools_are_called()
-
-        log_msg = f'\n\ntask:\n{self.current_task}\n\nai_response:\n{ai_msg.get_content()}'
-        self.logger.log(log_msg, who=self.name, use_separator=True)
-
-        self.current_task = None
-
-        # Submit answer with saved function
-        self.submit_final_answer(ai_msg.get_content())
-
-    # PROTECTED
-
-    def solve_task(self, task: str) -> str:
+    def __solve_task(self, task: str) -> None:
         self.current_task = task
 
         with self.message_history_lock:
-            # Convert the Task into Message type
             self.message_history.append(UserMessage(task))
+            self.__complete_chat_until_no_tools_are_called()
 
-            # Repeatedly invoke the llm untill he answers without tool calls
-            ai_msg = self.complete_chat_until_no_tools_are_called()
+    def __start_work(self) -> None:
+        def work() -> None:
+            if self.__is_working():
+                return
+            self.__set_working_state(True)
 
-        log_msg = f'\n\ntask:\n{self.current_task}\n\nai_response:\n{ai_msg.get_content()}'
-        self.logger.log(log_msg, who=self.name, use_separator=True)
+            try:
+                self.__resume_last_task_if_not_complete()
 
-        self.current_task = None
+                next_task, self.submit_final_answer, self.submit_partial_answer = self.__get_next_task()
+                while next_task:
+                    self.__solve_task(next_task)
+                    next_task, self.submit_final_answer, self.submit_partial_answer = self.__get_next_task()
 
-        return ai_msg.get_content()
+            except self.ShouldPause as _:
+                pass
+
+            self.__set_working_state(False)
+
+        Thread(target=work, daemon=True).start()
 
     # PUBLIC
 
@@ -255,19 +184,19 @@ class Agent:
     ) -> None:
         if not task:
             return
-        self.add_task(task, submit_final_answer, submit_partial_answer)
+        self.__add_task(task, submit_final_answer, submit_partial_answer)
 
-        if not self.is_working():
-            self.start_work()
+        if not self.__is_working():
+            self.__start_work()
 
     def pause_work(self) -> None:
         with self.working_state_lock:
-            if not self.working:
+            if not self.__is_working():
                 return
             self.should_pause = True
 
     def resume_work(self) -> None:
-        self.start_work()
+        self.__start_work()
 
     def clear_history(self) -> None:
         self.pause_work()
