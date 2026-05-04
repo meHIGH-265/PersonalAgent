@@ -1,25 +1,25 @@
-import json
+from json import dumps
 from pathlib import Path
+from typing import Any
 
 
-name = None
-description = None
-instructions = None
-tool_names = None
+name: str = ''
+description: str = ''
+instructions: str = ''
+tool_names: list[str] = []
 
 
 def main():
-    agent_data = {
+    agent_data: dict[str, Any] = {
         "name": name,
         "description": description,
         "instructions": instructions,
         "tool_names": tool_names
     }
 
-    output_path = Path(f"../Agents/{name}.json")
+    output_path: Path = Path(__file__).parents[1] / 'Agents' / f'{name}.json'
 
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(agent_data, f, indent=2, ensure_ascii=False)
+    output_path.write_text(dumps(agent_data, indent=2), encoding='utf-8')
 
     print(f"Agent data saved to {output_path}")
 
