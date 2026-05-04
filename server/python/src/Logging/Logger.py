@@ -14,7 +14,7 @@ class Logger:
     def _generate_content(self, x: Any, who: str | None = None, use_separator: bool = True, use_timestamp: bool = True) -> str:
         if who:
             who = f'[ {who} ]: '
-            x = f'{who}{f'{x}'.replace('\n', f'\n{' ' * len(who)}').replace('\t', self.tab)}'
+            x = f'{who}{f'{x}'.replace('\n', f'\n{' ' * len(who)}')}'
 
         content: str = f'{self.separator}\n' if use_separator else ''
         if use_timestamp:
@@ -22,7 +22,7 @@ class Logger:
         if x:
             content += f'{x}\n\n'
 
-        return content
+        return content.replace('\t', self.tab)
 
     def log(self, x: Any, who: str | None = None, use_separator: bool = True, use_timestamp: bool = True) -> None:
         pass

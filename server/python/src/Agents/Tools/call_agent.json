@@ -1,7 +1,8 @@
 {
-  "name": "create_file",
-  "description": "Creates an empty file.\nfile_path: the relative path of the file.\nreturns: a message representing the success or failure of the file creation.",
+  "name": "call_agent",
+  "description": "Sends a task to an AI agent with tools.\nagent_name: the name/id of the agent.\nmessage: the message/taskmsent to the agent.\nreturns: the answer of the agent, or a confirmation message.",
   "args_schema": {
-    "file_path": "str"
+    "agent_name": "str",
+    "message": "str"
   }
 }

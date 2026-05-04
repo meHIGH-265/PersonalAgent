@@ -1,8 +1,8 @@
 class Tool:
     def __init__(self, name: str, description: str, args_schema: dict[str, type]):
-        self.name = name
-        self.description = description
-        self.args_schema = args_schema
+        self.name: str = name
+        self.description: str = description
+        self.args_schema: dict[str, type] = args_schema
 
     def get_name(self) -> str:
         return self.name
