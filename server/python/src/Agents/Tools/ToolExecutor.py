@@ -1,7 +1,7 @@
 import requests
 
 from src.Agents.Messages.Messages import ToolCall, ToolMessage
-from src.Logging.CustomLogging import Logger
+from src.Logging.Logger import Logger
 
 
 class ToolExecutor:

@@ -6,8 +6,8 @@ from src.Streaming.Streamer import Streamer
 
 class SingleAgentServices:
     def __init__(self, agent_manager: AgentManager, streamer: Streamer):
-        self.agent_manager = agent_manager
-        self.streamer = streamer
+        self.agent_manager: AgentManager = agent_manager
+        self.streamer: Streamer = streamer
 
     def call_agent(
             self, query: str,
@@ -15,7 +15,7 @@ class SingleAgentServices:
             streaming_host: str | None = None,
             streaming_port: int | None = None
     ) -> None:
-        if streaming_host is None or streaming_port is None:
+        if not (streaming_host and streaming_port):
             self.agent_manager.get_agent(agent_id).give_task(query)
             return
 
