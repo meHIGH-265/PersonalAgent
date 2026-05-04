@@ -1,20 +1,21 @@
-import queue
-import socket
+from queue import Queue, ShutDown
+from socket import AF_INET, SOCK_STREAM, socket
 from threading import Thread
 
 
 class Streamer:
     def __init__(self):
-        self.queue = queue.Queue()
+        self.queue: Queue = Queue()
 
     def start_streaming(self, host: str, port: int) -> None:
         def stream() -> None:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            with socket(AF_INET, SOCK_STREAM) as s:
                 s.connect((host, port))
 
                 while True:
-                    data = self.queue.get()
-                    if data is None:
+                    try:
+                        data: str = self.queue.get()
+                    except ShutDown:
                         break
                     s.sendall(data.encode())
 
@@ -24,4 +25,4 @@ class Streamer:
         self.queue.put(data)
 
     def stop_streaming(self):
-        self.queue.put(None)
+        self.queue.shutdown()
