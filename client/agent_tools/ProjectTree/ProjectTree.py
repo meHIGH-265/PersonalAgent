@@ -1,8 +1,8 @@
 from pathlib import Path
-from typing import Any
 from pathspec import PathSpec
+from typing import Any
 
-from ToolImplementation.PythonAstParser import PythonAstParser
+from PythonAstParser.PythonAstParser import PythonAstParser
 
 
 class ProjectTree:
@@ -11,7 +11,7 @@ class ProjectTree:
         root_path: directory to scan
         parse_file_to_dict: function(path:str) -> structured AST dict
         """
-        root = Path(root_path).resolve()
+        root: Path = Path(root_path).resolve()
         return self.__process_directory(root)
 
     @staticmethod
@@ -30,16 +30,16 @@ class ProjectTree:
             raise ValueError("target_dir must be absolute")
 
         # Sort gitignore files by directory depth (root first)
-        gitignore_paths = sorted(gitignore_paths, key=lambda p: len(p.parts))
+        gitignore_paths: list[Path] = sorted(gitignore_paths, key=lambda p: len(p.parts))
 
-        ignored = False
+        ignored: bool = False
 
         for gitignore in gitignore_paths:
-            base_dir = gitignore.parent
+            base_dir: Path = gitignore.parent
 
             # Only apply if target_dir is inside this gitignore's scope
             try:
-                rel_path = target_dir.relative_to(base_dir)
+                rel_path: Path = target_dir.relative_to(base_dir)
             except ValueError:
                 continue  # not in this subtree
 
@@ -47,7 +47,7 @@ class ProjectTree:
                 continue
 
             with gitignore.open("r") as f:
-                lines = [
+                lines: list[str] = [
                     line.strip()
                     for line in f
                     if line.strip() and not line.strip().startswith("#")
@@ -56,7 +56,7 @@ class ProjectTree:
             spec = PathSpec.from_lines("gitwildmatch", lines)
 
             # Convert to POSIX-style relative path
-            rel_str = rel_path.as_posix()
+            rel_str: str = rel_path.as_posix()
 
             # Important: match_file returns True if matched by ANY rule,
             # but we need to respect negations → so we must evaluate manually
@@ -73,7 +73,7 @@ class ProjectTree:
                 'type': 'directory'
             }
 
-        children = []
+        children: list[dict[str, Any]] = []
     
         for child in sorted(path.iterdir(), key=lambda p: (not p.is_file(), p.name)):
             if child.is_dir():
@@ -104,8 +104,8 @@ class ProjectTree:
         with open(path, 'r', encoding='utf-8') as python_file:
             content = python_file.read()
     
-        classes = []
-        functions = []
+        classes: list[dict[str, Any]] = []
+        functions: list[dict[str, Any]] = []
     
         for node in PythonAstParser(content).parsed_python_source.get('body', []):
             node_type = node.get('node_type')
@@ -116,7 +116,7 @@ class ProjectTree:
             elif node_type == 'FunctionDef':
                 functions.append(ProjectTree.__extract_function(node))
     
-        processed_file = {
+        processed_file: dict[str, Any] = {
             'name': path.name,
             'type': 'python_file'
         }
@@ -128,10 +128,10 @@ class ProjectTree:
 
     @staticmethod
     def __extract_class(node: dict[str, Any]) -> dict[str, Any]:
-        bases = [base.get('id') if base.get('node_type') == 'Name' else base.get('source') for base in node.get('bases', [])]
-        classes = []
-        functions = []
-    
+        bases: list[str] = [base.get('id') if base.get('node_type') == 'Name' else base.get('source') for base in node.get('bases', [])]
+        classes: list[dict[str, Any]] = []
+        functions: list[dict[str, Any]] = []
+
         for item in node.get('body', []):
             node_type = item.get('node_type')
     
@@ -141,7 +141,7 @@ class ProjectTree:
             elif node_type == 'FunctionDef':
                 functions.append(ProjectTree.__extract_function(item))
     
-        processed_class = {
+        processed_class: dict[str, Any] = {
             'name': node.get('name'),
             'type': 'class'
         }
@@ -155,14 +155,14 @@ class ProjectTree:
 
     @staticmethod
     def __extract_function(node: dict[str, Any]) -> dict[str, Any]:
-        functions = []
+        functions: list[dict[str, Any]] = []
     
         # Nested functions
         for item in node.get('body', []):
             if item.get('node_type') == 'FunctionDef':
                 functions.append(ProjectTree.__extract_function(item))
     
-        processed_function = {
+        processed_function: dict[str, Any] = {
             'name': node.get('name'),
             'type': 'function'
         }
@@ -171,7 +171,7 @@ class ProjectTree:
         return processed_function
     
     def __init__(self, root_path: Path | str):
-        self.root_path = Path(root_path)
+        self.root_path: Path = Path(root_path)
         self.gitignore_paths: list[Path] = []
         self.project_tree: dict[str, Any] = self.__build_project_tree(self.root_path)
     
@@ -188,10 +188,10 @@ class ProjectTree:
                 return True
             return False
         
-        queue = [project_tree]
+        queue: list[dict[str, Any]] = [project_tree]
         
         while queue:
-            node = queue.pop(0)
+            node: dict[str, Any] = queue.pop(0)
             if name_match(node.get('name', ''), name):
                 return node
             for child_type in ['children', 'classes', 'functions']:
@@ -203,7 +203,7 @@ class ProjectTree:
         if isinstance(name_stack, str):
             name_stack = [name_stack]
 
-        crt_node = self.get_project_tree()
+        crt_node: dict[str, Any] = self.get_project_tree()
 
         for name in name_stack:
             crt_node = ProjectTree.__find_node_bfs(crt_node, name)

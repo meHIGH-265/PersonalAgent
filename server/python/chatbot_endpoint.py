@@ -4,6 +4,7 @@ from json import dumps
 from sys import argv
 
 from src.Agents.AgentManager import AgentManager
+from src.Agents.Brain.ChatOpenAIFactory import ChatOpenAIFactory
 from src.Agents.Tools.RemoteToolExecutor import RemoteToolExecutor
 from src.Agents.Tools.ToolManager import ToolManager
 from src.Logging.LogFileGenerator import LogFileGenerator
@@ -17,7 +18,8 @@ log_file_generator: LogFileGenerator = TimestampedLogFileGenerator('Logs', 'log.
 logger: MixedLogger = MixedLogger(log_file_generator, separator='-_' * 50 + '-')
 tool_executor: RemoteToolExecutor = RemoteToolExecutor(logger)
 tool_manager: ToolManager = ToolManager(tool_folder='src\\Agents\\Tools\\Tools')
-agent_manager: AgentManager = AgentManager(logger, tool_executor, tool_manager, agent_folder='src\\Agents\\Agents')
+chat_open_ai_factory: ChatOpenAIFactory = ChatOpenAIFactory()
+agent_manager: AgentManager = AgentManager(chat_open_ai_factory, logger, tool_executor, tool_manager, agent_folder='src\\Agents\\Agents')
 streamer: Streamer = Streamer()
 services: SingleAgentServices = SingleAgentServices(agent_manager, streamer)
 
@@ -128,7 +130,7 @@ def main():
     Main method that runs the endpoint at the address specified in the system variables
     And also sets the address for the tool fetches with set_tool_host() and set_tool_port()
     """
-    args = argv
+    args: list[str] = argv
 
     host: str = args[1] if len(args) > 1 else '127.0.0.1'
     port: int = int(args[2]) if len(args) > 2 else 5001

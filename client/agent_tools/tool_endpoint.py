@@ -55,10 +55,10 @@ def ping_endpoint():
 
 
 def main():
-    args = argv
-    tool_host = args[1] if len(args) > 1 else '127.0.0.1'
-    tool_port = int(args[2]) if len(args) > 2 else 7001
-    base_directory_path = args[3] if len(args) > 3 else None
+    args: list[str] = argv
+    tool_host: str = args[1] if len(args) > 1 else '127.0.0.1'
+    tool_port: int = int(args[2]) if len(args) > 2 else 7001
+    base_directory_path: str = args[3] if len(args) > 3 else None
 
     tool_logic.set_base_directory_path(base_directory_path)
 

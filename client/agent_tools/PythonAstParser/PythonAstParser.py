@@ -12,7 +12,7 @@ class PythonAstParser:
 
     @staticmethod
     def __pos_attrs(node: ast.AST) -> dict[str, Any]:
-        d = {}
+        d: dict[str, Any] = {}
         for attr in ('lineno', 'col_offset', 'end_lineno', 'end_col_offset'):
             if hasattr(node, attr):
                 d[attr] = getattr(node, attr)
@@ -31,7 +31,7 @@ class PythonAstParser:
             return node
 
         # Base dictionary for all nodes
-        out = PythonAstParser.__pos_attrs(node)
+        out: dict[str, Any] = PythonAstParser.__pos_attrs(node)
 
         out['node_type'] = type(node).__name__
 
@@ -43,7 +43,7 @@ class PythonAstParser:
 
         # Special docstring handling
         if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
-            doc = ast.get_docstring(node, clean=False)
+            doc: str | None = ast.get_docstring(node, clean=False)
             if doc:
                 out['docstring'] = doc
 
@@ -60,8 +60,8 @@ class PythonAstParser:
 
     @staticmethod
     def __parse_python_source(source: str) -> dict[str, Any]:
-        root = ast.parse(source)
-        parsed_source = PythonAstParser.__serialize(root, source)
+        root: ast.Module = ast.parse(source)
+        parsed_source: dict[str, Any] = PythonAstParser.__serialize(root, source)
         parsed_source['source'] = source
         return parsed_source
 
@@ -76,7 +76,7 @@ class PythonAstParser:
         queue: list[dict[str, Any]] = [parsed_python_source]
 
         while queue:
-            node = queue.pop(0)
+            node: dict[str, Any] = queue.pop(0)
             if node.get('name', '') == name:
                 return node
             queue.extend(node.get('body', []))
@@ -87,7 +87,7 @@ class PythonAstParser:
         if isinstance(name_stack, str):
             name_stack = [name_stack]
 
-        crt_node = self.parsed_python_source
+        crt_node: dict[str, Any] = self.parsed_python_source
 
         for name in name_stack:
             crt_node = PythonAstParser.__find_code_section_by_name_bfs(crt_node, name)
@@ -105,9 +105,9 @@ class PythonAstParser:
          -> Output: {lines 1 - 4} THEN {replacement} THEN {lines 9 - end_of_file}
         """
 
-        result = ''
+        result: str = ''
 
-        lines = source.split('\n')
+        lines: list[str] = source.split('\n')
         for i in range(start_line - 1):
             result += f'{lines[i]}\n'
         result += replacement
@@ -117,17 +117,17 @@ class PythonAstParser:
         return result
 
     def replace_section_by_name(self, name_stack: list[str] | str, replacement: str) -> str:
-        parsed_section = self.__find_code_section_by_name(name_stack)
+        parsed_section: dict[str, Any] = self.__find_code_section_by_name(name_stack)
 
-        source = self.parsed_python_source.get('source', '')
+        source: str = self.parsed_python_source.get('source', '')
         try:
-            start_line = parsed_section['lineno']
-            end_line = parsed_section['end_lineno']
-            offset = parsed_section['col_offset']
+            start_line: int = parsed_section['lineno']
+            end_line: int = parsed_section['end_lineno']
+            offset: int = parsed_section['col_offset']
         except KeyError:
             return source
 
-        spacing = ' ' * offset
-        replacement = f'{spacing}{replacement.replace('\n', f'\n{spacing}')}'
+        spacing: str = ' ' * offset
+        replacement: str = f'{spacing}{replacement.replace('\n', f'\n{spacing}')}'
 
         return PythonAstParser.__replace_lines(source, start_line, end_line, replacement)

@@ -4,10 +4,10 @@ from pathlib import Path
 from sys import executable
 from shutil import rmtree
 from subprocess import CalledProcessError, TimeoutExpired, run
-from typing import Callable
+from typing import Any, Callable
 
-from ToolImplementation.ProjectTree import ProjectTree
-from ToolImplementation.PythonAstParser import PythonAstParser
+from ProjectTree.ProjectTree import ProjectTree
+from PythonAstParser.PythonAstParser import PythonAstParser
 
 
 class ToolLogic:
@@ -43,7 +43,7 @@ class ToolLogic:
         self.base_directory_path = Path(base_directory_path or ToolLogic.__get_default_base_directory_path())
 
     def resolve_path(self, path: Path | str) -> Path:
-        absolute_path = (self.base_directory_path / path).resolve()
+        absolute_path: Path = (self.base_directory_path / path).resolve()
 
         if not absolute_path.is_relative_to(self.base_directory_path):
             raise ValueError(f'Path "{path}" escapes base directory.')
@@ -57,7 +57,7 @@ class ToolLogic:
     def read_file_content(self, data: dict[str, str]) -> str:
         file_path: str = data['file_path']
 
-        file_absolute_path = self.resolve_path(file_path)
+        file_absolute_path: Path = self.resolve_path(file_path)
 
         if not file_absolute_path.exists():
             error_type = 'warning'
@@ -69,15 +69,15 @@ class ToolLogic:
             error_message = f'"{file_path}" is not a file.'
             return ToolLogic.__compose_error_message(error_type, error_message)
 
-        file_content = file_absolute_path.read_text(encoding='utf-8')
+        file_content: str = file_absolute_path.read_text(encoding='utf-8')
         return file_content
 
     def get_code_section_from_file(self, data: dict[str, str]) -> str:
         file_path: str = data['file_path']
         section_name: str = data['section_name']
 
-        file_absolute_path = self.resolve_path(file_path)
-        name_stack = [name for name in section_name.split('.') if name]
+        file_absolute_path: Path = self.resolve_path(file_path)
+        name_stack: list[str] = [name for name in section_name.split('.') if name]
 
         if not file_absolute_path.exists():
             error_type = 'warning'
@@ -94,16 +94,16 @@ class ToolLogic:
             error_message = f'"{file_path}" is not a python file.'
             return ToolLogic.__compose_error_message(error_type, error_message)
 
-        file_content = file_absolute_path.read_text(encoding='utf-8')
+        file_content: str = file_absolute_path.read_text(encoding='utf-8')
         return PythonAstParser(file_content).get_source_code_for_section_by_name(name_stack)
 
     def find_named_structure(self, data: dict[str, str]) -> str:
         structure_name: str = data['structure_name']
 
-        project_tree = ProjectTree(self.base_directory_path)
-        name_stack = structure_name.split('.')
+        project_tree: ProjectTree = ProjectTree(self.base_directory_path)
+        name_stack: list[str] = structure_name.split('.')
 
-        structure = project_tree.find_node(name_stack)
+        structure: dict[str, Any] = project_tree.find_node(name_stack)
 
         return dumps(structure, indent=2)
 
@@ -111,7 +111,7 @@ class ToolLogic:
         pattern: str = data['pattern']
         file_extension: str | None = data.get('file_extension')
 
-        results = []
+        results: list[dict[str, Any]] = []
 
         for path in self.base_directory_path.rglob('*'):
             if not path.is_file():
@@ -121,7 +121,7 @@ class ToolLogic:
                 continue
 
             try:
-                content = path.read_text(encoding='utf-8')
+                content: str = path.read_text(encoding='utf-8')
             except Exception:
                 continue  # skip unreadable files
 
@@ -140,7 +140,7 @@ class ToolLogic:
     def create_file(self, data: dict[str, str]) -> str:
         file_path: str = data['file_path']
 
-        file_absolute_path = self.resolve_path(file_path)
+        file_absolute_path: Path = self.resolve_path(file_path)
 
         if file_absolute_path.exists():
             error_type = 'warning'
@@ -156,9 +156,9 @@ class ToolLogic:
         file_path: str = data['file_path']
         content: str = data['content']
 
-        file_absolute_path = self.resolve_path(file_path)
+        file_absolute_path: Path = self.resolve_path(file_path)
         if file_path.endswith('.py'):
-            content = fix_code(content)
+            content: str = fix_code(content)
 
         if not file_absolute_path.exists():
             error_type = 'warning'
@@ -174,8 +174,8 @@ class ToolLogic:
         section_name: str = data['section_name']
         replacement: str = data['replacement']
 
-        file_absolute_path = self.resolve_path(file_path)
-        name_stack = [name for name in section_name.split('.') if name]
+        file_absolute_path: Path = self.resolve_path(file_path)
+        name_stack: list[str] = [name for name in section_name.split('.') if name]
 
         if not file_absolute_path.exists():
             error_type = 'warning'
@@ -192,9 +192,9 @@ class ToolLogic:
             error_message = f'"{file_path}" is not a python file.'
             return ToolLogic.__compose_error_message(error_type, error_message)
 
-        file_content = file_absolute_path.read_text(encoding='utf-8')
+        file_content: str = file_absolute_path.read_text(encoding='utf-8')
 
-        new_content = PythonAstParser(file_content).replace_section_by_name(name_stack, replacement)
+        new_content: str = PythonAstParser(file_content).replace_section_by_name(name_stack, replacement)
         if not new_content or new_content == file_content:
             return f'The section with name "{section_name}" was not found. The content of the file was not modified.'
 
@@ -205,7 +205,7 @@ class ToolLogic:
     def delete_path(self, data: dict[str, str]) -> str:
         target_path: str = data['path']
 
-        absolute_path = self.resolve_path(target_path)
+        absolute_path: Path = self.resolve_path(target_path)
 
         if not absolute_path.exists():
             error_type = 'warning'
@@ -227,8 +227,8 @@ class ToolLogic:
         source_path: str = data['source_path']
         destination_path: str = data['destination_path']
 
-        source_absolute = self.resolve_path(source_path)
-        destination_absolute = self.resolve_path(destination_path)
+        source_absolute: Path = self.resolve_path(source_path)
+        destination_absolute: Path = self.resolve_path(destination_path)
 
         if not source_absolute.exists():
             error_type = 'warning'
@@ -250,7 +250,7 @@ class ToolLogic:
     def run_python_script(self, data: dict[str, str]) -> str:
         file_path: str = data['file_path']
 
-        file_absolute_path = self.resolve_path(file_path)
+        file_absolute_path: Path = self.resolve_path(file_path)
 
         if not file_absolute_path.exists():
             error_type = 'warning'
@@ -268,7 +268,7 @@ class ToolLogic:
             return ToolLogic.__compose_error_message(error_type, error_message)
 
         def file_to_module(file: str) -> str:
-            module = file
+            module: str = file
 
             # if file separator is '\'
             module = module.replace('\\', '.')
@@ -281,13 +281,13 @@ class ToolLogic:
 
             return module
 
-        module_path = file_to_module(file_path)
+        module_path: str = file_to_module(file_path)
 
         # Start with the base directory
-        current_working_directory = self.base_directory_path
+        current_working_directory: Path = self.base_directory_path
 
         # Attempt to run recursively by peeling off module parts if ModuleNotFoundError occurs
-        timeout_in_seconds = 5
+        timeout_in_seconds: int = 5
         while module_path:
             try:
                 result = run(
@@ -305,14 +305,14 @@ class ToolLogic:
                 # Check if the error is ModuleNotFoundError
                 if 'ModuleNotFoundError' in e.stderr:
                     # Peel off the first part of the module and adjust cwd
-                    parts = module_path.split('.', 1)
+                    parts: list[str] = module_path.split('.', 1)
                     if len(parts) <= 1:
                         # Nothing left to peel, give up
                         return f'Error raised inside the script: "{e.stderr}"'
 
                     # Move first part into cwd
-                    current_working_directory = current_working_directory / parts[0]
-                    module_path = parts[1]
+                    current_working_directory: Path = current_working_directory / parts[0]
+                    module_path: str = parts[1]
 
                 else:
                     # Other subprocess errors, stop
@@ -325,7 +325,7 @@ class ToolLogic:
 
     def install_package(self, data: dict[str, str]) -> str:
         package_name: str = data['package_name']
-        timeout_in_seconds = 60
+        timeout_in_seconds: int = 60
 
         try:
             result = run(
@@ -361,6 +361,5 @@ class ToolLogic:
         )
 
     def handle_tool_call(self, tool_name: str, data: dict[str, str]) -> str:
-        selected_tool = self.tools.get(tool_name, self.non_existing_tool)
-
+        selected_tool: Callable[[dict[str, str]], str] = self.tools.get(tool_name, self.non_existing_tool)
         return selected_tool(data)
