@@ -1,0 +1,7 @@
+{
+  "name": "create_file",
+  "description": "Creates an empty file.\nfile_path: the relative path of the file.\nreturns: a message representing the success or failure of the file creation.",
+  "args_schema": {
+    "file_path": "str"
+  }
+}

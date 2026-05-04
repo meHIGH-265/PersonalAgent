@@ -1,7 +1,0 @@
-{
-  "name": "get_file_content_structure",
-  "description": "Generates a simplified structural overview of a file by listing classes and functions.\nfile_path: the relative path of the file.\nreturns: a structured summary of class and function definitions.",
-  "args_schema": {
-    "file_path": "str"
-  }
-}

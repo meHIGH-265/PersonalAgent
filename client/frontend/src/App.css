@@ -1,0 +1,52 @@
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+}
+
+.sidebar-editor-chat-console {
+  flex: 9;
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+}
+
+.editor-chat-console {
+  flex: 4;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.editor-chat {
+  flex: 3;
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+}
+
+.chat-panel {
+  flex: 1;
+  background-color: '#00001f';
+}
+
+.console-panel {
+  flex: 1;
+  background-color: '#001f1f';
+}
+
+.editor-panel {
+  flex: 2;
+  background-color: '#001f00';
+}
+
+.footer-panel {
+  flex: 1;
+  background-color: '#1f1f1f';
+}
+
+.sidebar-panel {
+  flex: 1;
+  background-color: '#1f0000';
+}

@@ -5,17 +5,7 @@ from typing import Any
 from src.Agents.Tools.Tool import Tool
 
 
-# TYPE_MAP = {
-#     'any': object,
-#     'bool': bool,
-#     'dict': dict,
-#     'float': float,
-#     'int': int,
-#     'list': list,
-#     'str': str
-# }
-
-TYPE_MAP = {_type.__name__: _type for _type in [bool, dict, float, int, list, object, str]}
+TYPE_MAP: dict[str, type] = {'any': object} | {_type.__name__: _type for _type in [bool, dict, float, int, list, str]}
 
 
 class ToolManager:

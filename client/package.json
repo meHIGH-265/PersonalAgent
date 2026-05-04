@@ -1,0 +1,12 @@
+{
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "electron": "^41.1.1",
+    "wait-on": "^9.0.4"
+  },
+  "scripts": {
+    "dev:react": "npm run dev --prefix frontend",
+    "start:electron": "electron electron/main.js",
+    "dev": "concurrently -k -n REACT,ELECTRON -c blue,green \"npm run dev:react\" \"wait-on http://localhost:5173 && npm run start:electron\""
+  }
+}
